@@ -1,0 +1,130 @@
+<html>
+  <head><title>golang URL shortener</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-BmbxuPwQa2lc/FVzBcNJ7UAyJxM6wuqIj61tLrc4wSX0szH/Ev+nYRRuWlolflfl" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.4.0/font/bootstrap-icons.css">
+    <style>
+      a {
+          margin: 20px;
+          width: 300px;
+      }
+      .gurl {
+      }
+      .uri {
+
+      }
+      body {
+          background-color: #222222;
+          color: white;
+          font-family:monospace;
+          font-size:18;
+      }
+      #serverinfo {
+          text-align: right;
+      }
+      </style>
+  </head>
+  <body>
+
+    <input type="text" id="urlbox" value="Your URL here."></input>
+
+    <button type="submit" onclick="javascript:create()">Shorten!</button>
+    <span id="serverinfo">Gurl server:<input type="text" id="serverbox" value="localhost:9999"></span>
+    <hr />
+    Your shortened links:
+    <div id="links-grid-container" style="display:grid">
+      <script>
+        // css framework?? bootstrap?
+        // load config for location of server
+        configfile = document.createElement('script');
+        configfile.src = './config.js';
+        document.head.appendChild(configfile);
+
+        // TODO: swap known_links to being a dict.
+        known_links = JSON.parse(localStorage.getItem("links")) || {};
+        configdata = document.getElementById("serverbox").value.split(':');
+        config = {hostname:configdata[0], port:configdata[1]};
+        create = ()=>{
+            req = "http://" + config.hostname + ":" + config.port + "/c/" +
+                document.getElementById("urlbox").value;
+            console.log("!!" + req);
+            fetch(req, { method: "POST", mode:"cors"})
+                .then(response => response.text()
+                      .then((t) => {
+                          req_obj = JSON.parse(t);
+                          store_link(req_obj)
+                          disp_link(req_obj)
+                      } ));
+        }
+
+        del_link = (key) => {
+            const link_obj = known_links[key]
+            req = "http://" + config.hostname + ":" + config.port + "/d/" +
+                link_obj.key + "/" + link_obj.token;
+            fetch(req, {method: "DELETE", mode:"cors"})
+                .then(response => response.text().then((t) => {
+                    delete known_links[link_obj.key]
+                    localStorage.setItem("links", JSON.stringify(known_links));
+                    document.getElementById(link_obj.key).remove();
+                }))
+        }
+        store_link = (link_obj) => {
+            known_links[link_obj.key]=link_obj;
+            localStorage.setItem("links", JSON.stringify(known_links));
+        }
+        disp_link = (link_obj) => {
+            /* creates & adds html elements for each link */
+            // TODO: gen a QR code for short gurl on button.
+            // TODO: formatting/visual design
+            // TODO: refactor??
+            const lbox = document.createElement("div");
+            const del_button = document.createElement("button");
+            del_button.innerHTML='Delete <i class="bi bi-backspace-reverse"></i>';
+
+            del_button.className = "btn btn-outline-danger";
+            del_button.onclick = () => {
+                del_link(link_obj.key);
+            }
+
+            const gurl = document.createElement("a");
+            gurl.className = "gurl";
+            gurl.text = link_obj.gurl;
+            gurl.href = link_obj.gurl;
+
+
+            const uri = document.createElement("a");
+            uri.className = "uri";
+            uri.text =link_obj.uri;
+            uri.href =link_obj.uri;
+
+            lbox.appendChild(del_button);
+            lbox.appendChild(gurl);
+            lbox.appendChild(uri);
+            lbox.id = link_obj.key;
+
+            document.getElementById("links-grid-container").appendChild(lbox);
+            console.log(link_obj);
+        }
+        document.getElementById("urlbox").addEventListener("keyup", function(ev) {
+            ev.preventDefault();
+            if(ev.keyCode == 13) create();
+        });
+        disp_known_links = () => {
+            if(Object.keys(known_links).length > 0) {
+                const d = document.createElement("div");
+                d.innerText = "";
+                document.getElementById("links-grid-container").appendChild(d);
+
+                Object.keys(known_links).forEach(k => {
+                    disp_link(known_links[k])
+
+                })
+            }
+            else {
+                known_links = {};
+            }
+        }
+        disp_known_links();
+        </script>
+    </div>
+  </body>
+</html>
